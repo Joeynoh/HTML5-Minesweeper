@@ -13,24 +13,35 @@
 		/*-------------------------------------------*/
 		
 		var globals = {
-			firstClick: true,
-			gameover: false,
-			canvas: '',
-			context: '',
-			totalMines: 0,
-			totalFlags: 0,
-			elapsedTime: 0,
-			clock: '',
-			mineMap: new Array(20),
-			flagMap: new Array(20),
-			revealedMap: new Array()
+			firstClick: 	true,
+			gameover: 		false,
+			canvas: 		'',
+			context: 		'',
+			totalMines: 	0,
+			totalFlags: 	0,
+			elapsedTime: 	0,
+			clock: 			'',
+			mineMap: 		new Array(20),
+			flagMap: 		new Array(20),
+			revealedMap: 	new Array()
 		},
 		
-			defaults = {
-			difficulty: 7,
-			celSize: 20,
-			width: 400,
-			height: 400
+		defaults = {
+			difficulty: 	7,
+			celSize: 		20,
+			width: 			400,
+			height: 		400,
+			background: 	'white',
+			font: 			'13pt Arial',
+			celColor: 		'#3E7CBB',
+			celStroke: 		'white',
+			celRadius:		5,
+			mineImg: 		'http://images4.wikia.nocookie.net/__cb20100714194517/sims/images/3/31/Moodlet_icon_amused_fun.png',
+			flagImg:		'http://www.mricons.com/store/png/116766_34244_32_antivirus_protection_red_shield_icon.png'
+		},
+		
+		containers = {
+			// In core.init(), we add containers.
 		};
 		
 		/*-------------------------------------------*/
@@ -49,13 +60,14 @@
 			init: function(){
 				globals.canvas = $('#board');
 				globals.context = globals.canvas[0].getContext("2d");
-				globals.context.background = 'white';
-				globals.context.font = '13pt Arial';
+				globals.context.background = defaults.background;
+				globals.context.font = defaults.font;
 				
-				// Create empty flagMap
-				for(var k = 0; k < 20; k++){
-					globals.flagMap[k] = Array(20);
-				}
+				containers.flags = $('#flags'); 
+				containers.mines = $('#mines');
+				containers.status = $('#gameOver');
+				containers.time = $('#time');
+				containers.difficulty = $('#difficulty');
 				
 				// Attach some listeners, at this point only mousedown
 				globals.canvas.live({
@@ -64,13 +76,13 @@
 					}	
 				});
 				
-				$('#difficulty').change(function(){
+				containers.difficulty.change(function(){
 					defaults.difficulty = $(this).val();
 					core.reset();
 				});
 				
-				// Draw the board
-				core.drawBoard();
+				// Initialize the board
+				core.setup();
 			},
 			
 			/*-------------------------------------------*/
@@ -98,15 +110,38 @@
 				globals.revealedMap = new Array();
 				
 				// Clear certain containers
-				$('#flags, #mines, #gameOver, #time').html('');
+				containers.flags.html('');
+				containers.mines.html('');
+				containers.status.html('');
+				containers.time.html('');
+				
+				// Initialize the board
+				core.setup();
+			},
 			
+			/*-------------------------------------------*/
+			//-- Setup function
+			//-- Sets up certain variables and draws the 
+			//-- board. Used during both init() and reset()
+			//-- @return void
+			/*-------------------------------------------*/
+			
+			setup: function(){
 				// Clear flagMap array
 				for(var k = 0; k < 20; k++){
 					globals.flagMap[k] = Array(20);
 				}
 				
-				// Draw the board	
-				core.drawBoard();
+				// Make sure proper styles are set
+				globals.context.strokeStyle = defaults.celStroke;
+				globals.context.fillStyle = defaults.celColor;
+				
+				// Draw all the rounded squares
+				for(var i = 0; i <= defaults.width; i = i + 20){
+					for(var j = 0; j <= defaults.height; j = j + 20){
+						util.roundRect(i, j, defaults.celSize - 1, defaults.celSize - 1);
+					} 
+				}
 			},
 			
 			/*-------------------------------------------*/
@@ -118,29 +153,10 @@
 			timer: function(){
 				// Setup global var timer
 				globals.clock = setInterval(function(){
-					globals.elapsedTime = Math.floor((globals.elapsedTime * 10) + 1) / 10;
+					globals.elapsedTime++;
 					// Append time to #time
-					$('#time').html(globals.elapsedTime);
-				}, 100)	
-			},
-			
-			/*-------------------------------------------*/
-			//-- drawBoard function
-			//-- Draws the board at startup and reset
-			//-- @return void
-			/*-------------------------------------------*/
-			
-			drawBoard: function(){
-				// Make sure proper styles are set
-				globals.context.strokeStyle = '#fff';
-				globals.context.fillStyle = '#3E7CBB';
-				
-				// Draw all the rounded squares
-				for(var i = 0; i <= defaults.width; i = i + 20){
-					for(var j = 0; j <= defaults.height; j = j + 20){
-						util.roundRect(i, j, defaults.celSize - 1, defaults.celSize - 1);
-					} 
-				}
+					containers.time.html(globals.elapsedTime);
+				}, 1000)	
 			}
 		};
 		
@@ -149,58 +165,142 @@
 		/*-------------------------------------------*/
 		
 		var action = {
+			
+			/*-------------------------------------------*/
+			//-- Click function
+			//-- listens to right and left mouse clicks
+			//-- and determines the proper cel and what 
+			//-- action to take.
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			click: function(e){
+				
+				// Calculate x & y relevant to the cel size, also (l) check if current x,y combo has already been revealed
 				var x = Math.floor((e.pageX - globals.canvas[0].offsetLeft - 1) / defaults.celSize),
 					y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
 					l = $.inArray(x + ', ' + y, globals.revealedMap);
 				
+				// If left-click, not a flag and the game is still going on
 				if(e.which == 1 && globals.flagMap[x][y] != 1 && !globals.gameover){
 					
-					if(globals.firstClick == true){
+					// Is this the first click of the game?
+					if(globals.firstClick === true){
 						
-						defaults.difficulty = $('#difficulty').val();
+						// Set difficulty, based on default and difficulty selector, and start the timer
+						defaults.difficulty = containers.difficulty.val();
 						core.timer();
 						
+						// Keep generating possible minemaps till one is generate where the square first clicked is not a mine
 						do
 							action.generateMines(globals.mineMap);
 						while(globals.mineMap[x][y] == -1);
 						
-						$('#mines').html('You have to find ' + globals.totalMines + ' mines to win.');
+						// Set number of mines
+						containers.mines.html('You have to find ' + globals.totalMines + ' mines to win.');
 						globals.firstClick = false;
 					}
 					
-					action.index(x,y);
-					
-				} else if(e.which == 3 && !globals.gameover && l < 0){
-					
-					if(globals.firstClick == true){
-						return false;	
-					}
+					// Activate index function. See below for more details
+					action.index(x, y);
 				
-					var shield = new Image();
-					shield.onload = function() {
-						action.flag(shield,x,y);
-					};
-					shield.src = 'http://www.mricons.com/store/png/116766_34244_32_antivirus_protection_red_shield_icon.png';
+				// If right-click, game is not over, square has not been revealed and this is not the first click	
+				}else if(e.which == 3 && !globals.gameover && l < 0 && globals.firstClick !== true){
 					
-					return false;
+					// Flag the square
+					var flag = new Image();
+					flag.src = defaults.flagImg;
+					flag.onload = function(){
+						action.flag(flag,x,y);
+					};
 				}	
 			},
 			
+			/*-------------------------------------------*/
+			//-- Hover function
+			//-- Speaks for itself
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			hover: function(e){
+				
+				// TODO Some fancy hover stuff
 				
 			},
 			
-			flag: function(flag, x, y){
+			/*-------------------------------------------*/
+			//-- Index function
+			//-- Used to determine whether square is a mine
+			//-- or not 
+			//-- @return void
+			/*-------------------------------------------*/
 			
+			index: function(x, y){
+				var l = $.inArray(x + ', ' + y, globals.revealedMap);
+				
+				// If square is not revealed, is within boundaries and exists
+				if(l < 0 && x >= 0 && y >= 0 && x <= 20 && y <= 20 && globals.mineMap[x] != undefined){
+					
+					// 'remove square', by drawing a white one over it
+					globals.context.fillStyle = 'white';
+					globals.context.strokeStyle = 'white';
+					util.roundRect(x * 20, y * 20, defaults.celSize, defaults.celSize);
+					
+					// Add revealed square to the revealed array
+					globals.revealedMap.push(x + ', ' + y);
+					
+					// If the square that was clicked has no surrounding mines...
+					if(globals.mineMap[x][y] === 0){
+						
+						// remove all neighbors till squares are found that do have surrounding mines
+						for(var i = -1; i <= 1; i++){
+							for(var j = -1; j <= 1; j++){
+								// If a neighboring square is also not surrounded by mines, remove his neighbors also; and repeat
+								if(l < 0 && x + i >= 0 && y + j >= 0 && x + i <= 20 && y + j <= 20){
+									action.index(x + i, y + j);
+								}
+							}
+						}
+						
+					// If the square does not cover a mine, display the index number
+					}else if(globals.mineMap[x][y] != -1){
+						
+						// Default colors for the index numbers in an array. [0] not having a color.
+						var colorMap = ['none', 'blue', 'green', 'red', 'black', 'orange', 'cyan'];
+						globals.context.fillStyle = colorMap[globals.mineMap[x][y]];
+						globals.context.fillText(globals.mineMap[x][y], (x * 20) + 5, (y * 20) + 16);
+						
+					}else{
+						
+						// If unforutantely there is mine, display it and trigger the function leading to the end of the game
+						var mine = new Image();
+						mine.src = defaults.mineImg;
+						mine.onload = function() {
+							action.revealMines(mine);
+						};
+					}
+				}
+			},
+			
+			/*-------------------------------------------*/
+			//-- Flag function
+			//-- Used to flag a square
+			//-- @return void
+			/*-------------------------------------------*/
+			
+			flag: function(flag, x, y){
+				
+				// If square is not already flagged
 				if(globals.flagMap[x][y] != 1){
 					
+					// Draw flag
 					globals.context.drawImage(flag, x * 20, y * 20, 20, 20);
 					globals.flagMap[x][y] = 1;
 					globals.totalFlags++;
 					
 				}else{
 					
+					// Remove flag image
 					var img = globals.context.createImageData(20, 20);
 					for(var i = img.data.length; --i >= 0;){
 					  img.data[i] = 0;
@@ -211,16 +311,26 @@
 					globals.totalFlags--;
 				}
 				
-				$('#mines').html('You have to find ' + (globals.totalMines - globals.totalFlags) + ' mines to win.');
-				$('#flags').html('You have set ' + globals.totalFlags + ' flags.');
+				// Adjust counters accordingly
+				containers.mines.html('You have to find ' + (globals.totalMines - globals.totalFlags) + ' mines to win.');
+				containers.flags.html('You have set ' + globals.totalFlags + ' flags.');
 				
-				if(action.won()){
-					alert("You have won!!");
-				}
+				// With every flag (or unflag) check if the game has been won
+				action.won();
 			},
 			
+			/*-------------------------------------------*/
+			//-- Won function
+			//-- Used to determine if the game has been won
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			won: function(){
+				
+				// Setup counter
 				var count = 0;
+				
+				// Count the number of flagged mines 
 				for(var i = 0; i < 20; i++){
 					for(var j = 0; j < 20; j++){
 						if((globals.flagMap[i][j] == 1 ) && (globals.mineMap[i][j] == -1)){
@@ -229,12 +339,31 @@
 					}
 				}
 				
-				return (count == globals.totalMines) ? true : false;
+				// If the number of flagged mines equals the total number of mines, the game has been won
+				if(count === globals.totalMines){
+					// Set game over status
+					globals.gameover = true;
+					containers.status.html('You have won the game! A new game will start in 3 seconds');
+					
+					// Stops the timer and counts down to a reset of the game
+					window.clearInterval(globals.clock);
+					setTimeout("core.reset();", 3000);
+				}
 			},
 			
+			/*-------------------------------------------*/
+			//-- Generate Mines function
+			//-- Places the mines on the field, at random
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			generateMines: function(){
+				
+				// For every square
 				for(var i = 0; i < 20; i++){
 					globals.mineMap[i] = new Array(20);
+					
+					// The lower the dificulty, the more mines
 					for(var j = 0; j < 20; j++){
 						globals.mineMap[i][j] = Math.floor((Math.random() * defaults.difficulty) - 1);
 						
@@ -244,15 +373,26 @@
 					}
 				} 
 				
+				// Move on to the next step of the setup
 				action.calculateMines();
 			},
 			
+			/*-------------------------------------------*/
+			//-- Calculate Mines function
+			//-- Used to calculate surrounding mines number
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			calculateMines: function() {
+				
 				var mineCount = 0;
-				globals.totalMines = 0;//Global variable that counts the total amount of mines that the player has to find
+				globals.totalMines = 0;
+				
+				// Check every square
 				for(var i = 0; i < 20; i++){
 					for(var j = 0; j < 20; j++){
-						//If the square is not a mine.. calculate its surround mine number
+						
+						//If the square is not a mine; calculate its surround mine number
 						if(globals.mineMap[i][j] != -1){
 							//N
 							if(j > 0 && globals.mineMap[i][j-1] == -1){
@@ -286,86 +426,62 @@
 							if(i < 19 && j < 19 && globals.mineMap[i+1][j+1]){
 								mineCount++;
 							} 
+							
+							// Save number and reset the counter
 							globals.mineMap[i][j] = mineCount;
 							mineCount = 0;
+							
 						} else {
+							
+							// Count the mines
 							globals.totalMines++;		
 						}
 					} 
 				}
 			},
 			
+			/*-------------------------------------------*/
+			//-- Reveal Mines function
+			//-- Reveals all the mines and triggers a game
+			//-- over status
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			revealMines: function(mine){
+				
+				// Draw all the mines
 				for(var i = 0; i < 20; i++){
 					for(var j = 0; j < 20; j++){
 						if(globals.mineMap[i][j] == -1)
 							globals.context.drawImage(mine, i * 20, j * 20, 20, 20);
 					}
 				}
-	
-				globals.gameover = true;
-				$('#gameOver').html('Oops! You hit a mine\nYour game will restart in 3 seconds...');
 				
+				// Set game over status
+				globals.gameover = true;
+				containers.status.html('Oops! You hit a mine\nYour game will restart in 3 seconds...');
+				
+				// Stops the timer and counts down to a reset of the game
 				window.clearInterval(globals.clock);
 				setTimeout("core.reset();",3000);
-			},
-			
-			index: function(x, y){
-				var l = $.inArray(x + ', ' + y, globals.revealedMap);
-				
-				if(l < 0 && x >= 0 && y >= 0 && x <= 20 && y <= 20 && globals.mineMap[x] != undefined){
-					
-					globals.context.fillStyle = 'white';
-					globals.context.strokeStyle = 'white';
-					
-					util.roundRect(x * 20, y * 20, defaults.celSize, defaults.celSize);
-					
-					globals.revealedMap.push(x + ', ' + y);
-				
-					if(globals.mineMap[x][y] === 0){
-						
-						for(var i = -1; i <= 1; i++){
-							for(var j = -1; j <= 1; j++){
-								if(l < 0 && x + i >= 0 && y + j >= 0 && x + i <= 20 && y + j <= 20){
-									action.index(x + i, y + j);
-								}
-							}
-						}
-						
-					}else if(globals.mineMap[x][y] != -1){
-						var colorMap = ['none', 'blue', 'green', 'red', 'black', 'orange', 'cyan'];
-						globals.context.fillStyle = colorMap[globals.mineMap[x][y]];
-						globals.context.fillText(globals.mineMap[x][y], (x * 20) + 5, (y * 20) + 16);
-					}else{
-						var mine = new Image();
-						mine.onload = function() {
-							action.revealMines(mine);
-						};
-						mine.src = 'http://images4.wikia.nocookie.net/__cb20100714194517/sims/images/3/31/Moodlet_icon_amused_fun.png';
-					}
-				}
 			}
 		};
 		
 		var util = {
 			roundRect: function(x, y, width, height) {
-
-				radius = 5;
-				
 				globals.context.beginPath();
-				globals.context.moveTo(x + radius, y);
-				globals.context.lineTo(x + width - radius, y);
-				globals.context.quadraticCurveTo(x + width, y, x + width, y + radius);
-				globals.context.lineTo(x + width, y + height - radius);
-				globals.context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-				globals.context.lineTo(x + radius, y + height);
-				globals.context.quadraticCurveTo(x, y + height, x, y + height - radius);
-				globals.context.lineTo(x, y + radius);
-				globals.context.quadraticCurveTo(x, y, x + radius, y);
+				globals.context.moveTo(x + defaults.celRadius, y);
+				globals.context.lineTo(x + width - defaults.celRadius, y);
+				globals.context.quadraticCurveTo(x + width, y, x + width, y + defaults.celRadius);
+				globals.context.lineTo(x + width, y + height - defaults.celRadius);
+				globals.context.quadraticCurveTo(x + width, y + height, x + width - defaults.celRadius, y + height);
+				globals.context.lineTo(x + defaults.celRadius, y + height);
+				globals.context.quadraticCurveTo(x, y + height, x, y + height - defaults.celRadius);
+				globals.context.lineTo(x, y + defaults.celRadius);
+				globals.context.quadraticCurveTo(x, y, x + defaults.celRadius, y);
 				globals.context.closePath();
 				globals.context.stroke();
-				globals.context.fill();
-				        
+				globals.context.fill();    
 			}
 		};
 		
@@ -375,7 +491,7 @@
 		
 		</script>
 	</head>
-	<body>
+	<body oncontextmenu="return false;">
 		<header>
 			<h1>HTML5 Minesweeper</h1>
 		</header>
