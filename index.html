@@ -38,16 +38,26 @@
 		/*-------------------------------------------*/
 		
 		var core = {
+			
+			/*-------------------------------------------*/
+			//-- Initiate function
+			//-- Get the canvas and context, as well as 
+			//-- attach some listeners.
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			init: function(){
 				globals.canvas = $('#board');
 				globals.context = globals.canvas[0].getContext("2d");
 				globals.context.background = 'white';
 				globals.context.font = '13pt Arial';
 				
+				// Create empty flagMap
 				for(var k = 0; k < 20; k++){
 					globals.flagMap[k] = Array(20);
 				}
 				
+				// Attach some listeners, at this point only mousedown
 				globals.canvas.live({
 					'mousedown': function(e){
 						action.click(e);
@@ -59,15 +69,25 @@
 					core.reset();
 				});
 				
-				return core.drawBoard();
+				// Draw the board
+				core.drawBoard();
 			},
+			
+			/*-------------------------------------------*/
+			//-- Reset function
+			//-- Resets the game, clears the timers, etc.
+			//-- @return void
+			/*-------------------------------------------*/
 			
 			reset: function(){	
 				
+				// Clear the timer
 				window.clearInterval(globals.clock);
 			
+				// Wipe the canvas clean
 				globals.context.clearRect(0,0,400,400);
 				
+				// Reset all global vars to their default value
 				globals.gameover = false;
 				globals.firstClick = true;
 				globals.totalMines = 0;
@@ -77,33 +97,56 @@
 				globals.flagMap = new Array(20);
 				globals.revealedMap = new Array();
 				
+				// Clear certain containers
 				$('#flags, #mines, #gameOver, #time').html('');
 			
+				// Clear flagMap array
 				for(var k = 0; k < 20; k++){
 					globals.flagMap[k] = Array(20);
 				}
-							
-				return core.drawBoard();
+				
+				// Draw the board	
+				core.drawBoard();
 			},
 			
+			/*-------------------------------------------*/
+			//-- Timer function
+			//-- Starts the clock
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			timer: function(){
+				// Setup global var timer
 				globals.clock = setInterval(function(){
 					globals.elapsedTime = Math.floor((globals.elapsedTime * 10) + 1) / 10;
+					// Append time to #time
 					$('#time').html(globals.elapsedTime);
 				}, 100)	
 			},
 			
+			/*-------------------------------------------*/
+			//-- drawBoard function
+			//-- Draws the board at startup and reset
+			//-- @return void
+			/*-------------------------------------------*/
+			
 			drawBoard: function(){
+				// Make sure proper styles are set
 				globals.context.strokeStyle = '#fff';
 				globals.context.fillStyle = '#3E7CBB';
 				
+				// Draw all the rounded squares
 				for(var i = 0; i <= defaults.width; i = i + 20){
 					for(var j = 0; j <= defaults.height; j = j + 20){
-						util.roundRect(globals.context, i, j, defaults.celSize - 1, defaults.celSize - 1, 5, true, false);
+						util.roundRect(i, j, defaults.celSize - 1, defaults.celSize - 1);
 					} 
 				}
 			}
 		};
+		
+		/*-------------------------------------------*/
+		//--- Action Functions ---
+		/*-------------------------------------------*/
 		
 		var action = {
 			click: function(e){
@@ -275,7 +318,7 @@
 					globals.context.fillStyle = 'white';
 					globals.context.strokeStyle = 'white';
 					
-					util.roundRect(globals.context, x * 20, y * 20, defaults.celSize, defaults.celSize, 5, true, true);
+					util.roundRect(x * 20, y * 20, defaults.celSize, defaults.celSize);
 					
 					globals.revealedMap.push(x + ', ' + y);
 				
@@ -305,30 +348,24 @@
 		};
 		
 		var util = {
-			roundRect: function(ctx, x, y, width, height, radius, fill, stroke) {
-				if (typeof stroke == "undefined" ) {
-					stroke = true;
-				}
-				if (typeof radius === "undefined") {
-					radius = 5;
-				}
-				ctx.beginPath();
-				ctx.moveTo(x + radius, y);
-				ctx.lineTo(x + width - radius, y);
-				ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-				ctx.lineTo(x + width, y + height - radius);
-				ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-				ctx.lineTo(x + radius, y + height);
-				ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-				ctx.lineTo(x, y + radius);
-				ctx.quadraticCurveTo(x, y, x + radius, y);
-				ctx.closePath();
-				if (stroke) {
-					ctx.stroke();
-				}
-				if (fill) {
-					ctx.fill();
-				}        
+			roundRect: function(x, y, width, height) {
+
+				radius = 5;
+				
+				globals.context.beginPath();
+				globals.context.moveTo(x + radius, y);
+				globals.context.lineTo(x + width - radius, y);
+				globals.context.quadraticCurveTo(x + width, y, x + width, y + radius);
+				globals.context.lineTo(x + width, y + height - radius);
+				globals.context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+				globals.context.lineTo(x + radius, y + height);
+				globals.context.quadraticCurveTo(x, y + height, x, y + height - radius);
+				globals.context.lineTo(x, y + radius);
+				globals.context.quadraticCurveTo(x, y, x + radius, y);
+				globals.context.closePath();
+				globals.context.stroke();
+				globals.context.fill();
+				        
 			}
 		};
 		
@@ -337,32 +374,10 @@
 		});
 		
 		</script>
-
-		<style type="text/css">
-		body {
-			font-family : Helvetica, Arial, sans-serif;
-			color : black;
-			margin : 0;
-			padding : 0;
-			text-align : center;
-		}
-
-		header h1 {
-		}
-
-		p {
-			color : black;
-			font-size : 80%;
-		}
-		
-		canvas {
-			background-color: #fff;
-		}
-		</style>
 	</head>
-	<body oncontextmenu="return false;">
+	<body>
 		<header>
-			<h1>Minesweeper</h1>
+			<h1>HTML5 Minesweeper</h1>
 		</header>
 		<section>
 			<button onclick="core.reset();">Reset</button>
@@ -372,29 +387,21 @@
 				<option value="3">Hard</option>
 			</select>
 		</section>
-		<div>
-			<section>
-				<p id="gameOver">
-			
-				</p>
-				<p id="time">
-			
-				</p>
-				<p id="mines">
-			
-				</p>
-				<p id="flags">
-			
-				</p>
-			</section>
-		<div>
+		<section>
+			<div>
+				<span id="gameOver"></span>
+				<span id="time"></span>
+				<span id="mines"></span>
+				<span id="flags"></span>
+			</div>
+		</section>
+		
 		<canvas id="board" width="400" height="400">
 			<p>Sorry. You're browser does not support the canvas element</p>
 		</canvas>
 
 		<noscript>
-			<p>Sorry. You're javascript is disabled. You will need to enable it in order to play the game.
-			</p>
+			<p>Sorry. You're javascript is disabled. You will need to enable it in order to play the game.</p>
 		</noscript>
 	</body>
 	</html>
