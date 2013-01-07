@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<hmtl lang="en">
+	<head>
+		<title>Minesweeper Canvas</title>
+		<meta charset="utf-8">
+		
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
+		
+		<script type="text/javascript">
+		
+		/*-------------------------------------------*/
+		//--- Global & Default Variables ---
+		/*-------------------------------------------*/
+		
+		var globals = {
+			firstClick: true,
+			gameover: false,
+			canvas: '',
+			context: '',
+			totalMines: 0,
+			totalFlags: 0,
+			elapsedTime: 0,
+			clock: '',
+			mineMap: new Array(20),
+			flagMap: new Array(20),
+			revealedMap: new Array()
+		},
+		
+			defaults = {
+			difficulty: 7,
+			celSize: 20,
+			width: 400,
+			height: 400
+		};
+		
+		/*-------------------------------------------*/
+		//--- Core Functions ---
+		/*-------------------------------------------*/
+		
+		var core = {
+			init: function(){
+				globals.canvas = $('#board');
+				globals.context = globals.canvas[0].getContext("2d");
+				globals.context.background = 'white';
+				globals.context.font = '13pt Arial';
+				
+				for(var k = 0; k < 20; k++){
+					globals.flagMap[k] = Array(20);
+				}
+				
+				globals.canvas.live({
+					'mousedown': function(e){
+						action.click(e);
+					}	
+				});
+				
+				$('#difficulty').change(function(){
+					defaults.difficulty = $(this).val();
+					core.reset();
+				});
+				
+				return core.drawBoard();
+			},
+			
+			reset: function(){	
+				
+				window.clearInterval(globals.clock);
+			
+				globals.context.clearRect(0,0,400,400);
+				
+				globals.gameover = false;
+				globals.firstClick = true;
+				globals.totalMines = 0;
+				globals.totalFlags = 0;
+				globals.elapsedTime = 0;
+				globals.mineMap = new Array(20);
+				globals.flagMap = new Array(20);
+				globals.revealedMap = new Array();
+				
+				$('#flags, #mines, #gameOver, #time').html('');
+			
+				for(var k = 0; k < 20; k++){
+					globals.flagMap[k] = Array(20);
+				}
+							
+				return core.drawBoard();
+			},
+			
+			timer: function(){
+				globals.clock = setInterval(function(){
+					globals.elapsedTime = Math.floor((globals.elapsedTime * 10) + 1) / 10;
+					$('#time').html(globals.elapsedTime);
+				}, 100)	
+			},
+			
+			drawBoard: function(){
+				globals.context.strokeStyle = '#fff';
+				globals.context.fillStyle = '#3E7CBB';
+				
+				for(var i = 0; i <= defaults.width; i = i + 20){
+					for(var j = 0; j <= defaults.height; j = j + 20){
+						util.roundRect(globals.context, i, j, defaults.celSize - 1, defaults.celSize - 1, 5, true, false);
+					} 
+				}
+			}
+		};
+		
+		var action = {
+			click: function(e){
+				var x = Math.floor((e.pageX - globals.canvas[0].offsetLeft - 1) / defaults.celSize),
+					y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
+					l = $.inArray(x + ', ' + y, globals.revealedMap);
+				
+				if(e.which == 1 && globals.flagMap[x][y] != 1 && !globals.gameover){
+					
+					if(globals.firstClick == true){
+						
+						defaults.difficulty = $('#difficulty').val();
+						core.timer();
+						
+						do
+							action.generateMines(globals.mineMap);
+						while(globals.mineMap[x][y] == -1);
+						
+						$('#mines').html('You have to find ' + globals.totalMines + ' mines to win.');
+						globals.firstClick = false;
+					}
+					
+					action.index(x,y);
+					
+				} else if(e.which == 3 && !globals.gameover && l < 0){
+					
+					if(globals.firstClick == true){
+						return false;	
+					}
+				
+					var shield = new Image();
+					shield.onload = function() {
+						action.flag(shield,x,y);
+					};
+					shield.src = 'http://www.mricons.com/store/png/116766_34244_32_antivirus_protection_red_shield_icon.png';
+					
+					return false;
+				}	
+			},
+			
+			hover: function(e){
+				
+			},
+			
+			flag: function(flag, x, y){
+			
+				if(globals.flagMap[x][y] != 1){
+					
+					globals.context.drawImage(flag, x * 20, y * 20, 20, 20);
+					globals.flagMap[x][y] = 1;
+					globals.totalFlags++;
+					
+				}else{
+					
+					var img = globals.context.createImageData(20, 20);
+					for(var i = img.data.length; --i >= 0;){
+					  img.data[i] = 0;
+					}
+					
+					globals.context.putImageData(img, x * 20, y * 20);
+					globals.flagMap[x][y] = 0;
+					globals.totalFlags--;
+				}
+				
+				$('#mines').html('You have to find ' + (globals.totalMines - globals.totalFlags) + ' mines to win.');
+				$('#flags').html('You have set ' + globals.totalFlags + ' flags.');
+				
+				if(action.won()){
+					alert("You have won!!");
+				}
+			},
+			
+			won: function(){
+				var count = 0;
+				for(var i = 0; i < 20; i++){
+					for(var j = 0; j < 20; j++){
+						if((globals.flagMap[i][j] == 1 ) && (globals.mineMap[i][j] == -1)){
+							count++;
+						} 
+					}
+				}
+				
+				return (count == globals.totalMines) ? true : false;
+			},
+			
+			generateMines: function(){
+				for(var i = 0; i < 20; i++){
+					globals.mineMap[i] = new Array(20);
+					for(var j = 0; j < 20; j++){
+						globals.mineMap[i][j] = Math.floor((Math.random() * defaults.difficulty) - 1);
+						
+						if(globals.mineMap[i][j] > 0){
+							globals.mineMap[i][j] = 0;
+						}
+					}
+				} 
+				
+				action.calculateMines();
+			},
+			
+			calculateMines: function() {
+				var mineCount = 0;
+				globals.totalMines = 0;//Global variable that counts the total amount of mines that the player has to find
+				for(var i = 0; i < 20; i++){
+					for(var j = 0; j < 20; j++){
+						//If the square is not a mine.. calculate its surround mine number
+						if(globals.mineMap[i][j] != -1){
+							//N
+							if(j > 0 && globals.mineMap[i][j-1] == -1){
+								mineCount++;
+							}
+							//NW
+							if(i > 0 && j > 0 && globals.mineMap[i-1][j-1] == -1){
+								mineCount++;
+							}
+							//NE
+							if(j > 0 && i < 19 && globals.mineMap[i+1][j-1] == -1){
+								mineCount++;
+							}
+							//E
+							if(i < 19 && globals.mineMap[i+1][j] == -1){
+								mineCount++;
+							}
+							//W
+							if(i > 0 && globals.mineMap[i-1][j] == -1){
+								mineCount++;
+							}
+							//S
+							if(j < 19 && globals.mineMap[i][j+1] == -1){
+								mineCount++;
+							}
+							//SW
+							if(i > 0 && j < 19 && globals.mineMap[i-1][j+1] == -1 ){
+								mineCount++;
+							}
+							//SE
+							if(i < 19 && j < 19 && globals.mineMap[i+1][j+1]){
+								mineCount++;
+							} 
+							globals.mineMap[i][j] = mineCount;
+							mineCount = 0;
+						} else {
+							globals.totalMines++;		
+						}
+					} 
+				}
+			},
+			
+			revealMines: function(mine){
+				for(var i = 0; i < 20; i++){
+					for(var j = 0; j < 20; j++){
+						if(globals.mineMap[i][j] == -1)
+							globals.context.drawImage(mine, i * 20, j * 20, 20, 20);
+					}
+				}
+	
+				globals.gameover = true;
+				$('#gameOver').html('Oops! You hit a mine\nYour game will restart in 3 seconds...');
+				
+				window.clearInterval(globals.clock);
+				setTimeout("core.reset();",3000);
+			},
+			
+			index: function(x, y){
+				var l = $.inArray(x + ', ' + y, globals.revealedMap);
+				
+				if(l < 0 && x >= 0 && y >= 0 && x <= 20 && y <= 20 && globals.mineMap[x] != undefined){
+					
+					globals.context.fillStyle = 'white';
+					globals.context.strokeStyle = 'white';
+					
+					util.roundRect(globals.context, x * 20, y * 20, defaults.celSize, defaults.celSize, 5, true, true);
+					
+					globals.revealedMap.push(x + ', ' + y);
+				
+					if(globals.mineMap[x][y] === 0){
+						
+						for(var i = -1; i <= 1; i++){
+							for(var j = -1; j <= 1; j++){
+								if(l < 0 && x + i >= 0 && y + j >= 0 && x + i <= 20 && y + j <= 20){
+									action.index(x + i, y + j);
+								}
+							}
+						}
+						
+					}else if(globals.mineMap[x][y] != -1){
+						var colorMap = ['none', 'blue', 'green', 'red', 'black', 'orange', 'cyan'];
+						globals.context.fillStyle = colorMap[globals.mineMap[x][y]];
+						globals.context.fillText(globals.mineMap[x][y], (x * 20) + 5, (y * 20) + 16);
+					}else{
+						var mine = new Image();
+						mine.onload = function() {
+							action.revealMines(mine);
+						};
+						mine.src = 'http://images4.wikia.nocookie.net/__cb20100714194517/sims/images/3/31/Moodlet_icon_amused_fun.png';
+					}
+				}
+			}
+		};
+		
+		var util = {
+			roundRect: function(ctx, x, y, width, height, radius, fill, stroke) {
+				if (typeof stroke == "undefined" ) {
+					stroke = true;
+				}
+				if (typeof radius === "undefined") {
+					radius = 5;
+				}
+				ctx.beginPath();
+				ctx.moveTo(x + radius, y);
+				ctx.lineTo(x + width - radius, y);
+				ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+				ctx.lineTo(x + width, y + height - radius);
+				ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+				ctx.lineTo(x + radius, y + height);
+				ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+				ctx.lineTo(x, y + radius);
+				ctx.quadraticCurveTo(x, y, x + radius, y);
+				ctx.closePath();
+				if (stroke) {
+					ctx.stroke();
+				}
+				if (fill) {
+					ctx.fill();
+				}        
+			}
+		};
+		
+		$(function(){
+			core.init();
+		});
+		
+		</script>
+
+		<style type="text/css">
+		body {
+			font-family : Helvetica, Arial, sans-serif;
+			color : black;
+			margin : 0;
+			padding : 0;
+			text-align : center;
+		}
+
+		header h1 {
+		}
+
+		p {
+			color : black;
+			font-size : 80%;
+		}
+		
+		canvas {
+			background-color: #fff;
+		}
+		</style>
+	</head>
+	<body oncontextmenu="return false;">
+		<header>
+			<h1>Minesweeper</h1>
+		</header>
+		<section>
+			<button onclick="core.reset();">Reset</button>
+			<select id="difficulty">
+				<option value="9">Easy</option>
+				<option value="6">Medium</option>
+				<option value="3">Hard</option>
+			</select>
+		</section>
+		<div>
+			<section>
+				<p id="gameOver">
+			
+				</p>
+				<p id="time">
+			
+				</p>
+				<p id="mines">
+			
+				</p>
+				<p id="flags">
+			
+				</p>
+			</section>
+		<div>
+		<canvas id="board" width="400" height="400">
+			<p>Sorry. You're browser does not support the canvas element</p>
+		</canvas>
+
+		<noscript>
+			<p>Sorry. You're javascript is disabled. You will need to enable it in order to play the game.
+			</p>
+		</noscript>
+	</body>
+	</html>
