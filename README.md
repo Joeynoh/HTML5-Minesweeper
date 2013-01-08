@@ -3,6 +3,12 @@ HTML5-Minesweeper
 
 Minesweeper game using jQuery and HTML5 canvas.
 
+v1.5
+====
+- Some bug fixes
+- New UI
+- New difficulty features
+
 v1.0
 ====
 - Click on empty square, reveal larger space up until other numbered squares
@@ -18,8 +24,8 @@ TODO
 - Add some decent images
 - Store scores
 - Score board
-- Fix some bugs when you unflag a square and the bg color changes
-- UI for difficulty setting
+- Set difficulty function
+- Animations
 
 
 Inspired by: 
