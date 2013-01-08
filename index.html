@@ -4,13 +4,16 @@
 	<title>Minesweeper Canvas</title>
 	<meta charset="utf-8">
 	
+	<link rel="stylesheet" media="screen" type="text/css" href="css/styles.css" />
+	<link href='http://fonts.googleapis.com/css?family=Open+Sans:300,600,700' rel='stylesheet' type='text/css'>
+	
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
 	
 	<script type="text/javascript">
 	
-	/*-------------------------------------------*/
-	//--- Global & Default Variables ---
-	/*-------------------------------------------*/
+	/* =========================================== */
+	// --- Global & Default Variables --- 
+	/* =========================================== */
 	
 	var globals = {
 		firstClick: true,
@@ -28,13 +31,13 @@
 	},
 	
 	defaults = {
-		difficulty: 7,
+		difficulty: 0,
 		celSize: 20,
 		width: 400,
 		height: 400,
 		background: 'white',
 		font: '13pt Arial',
-		celColor: '#3E7CBB',
+		celColor: '#ccc',
 		celStroke: 'white',
 		celRadius: 5,
 		mineImg: 'http://images4.wikia.nocookie.net/__cb20100714194517/sims/images/3/31/Moodlet_icon_amused_fun.png',
@@ -45,18 +48,18 @@
 		// In core.init(), we add containers.
 	};
 	
-	/*-------------------------------------------*/
-	//--- Core Functions ---
-	/*-------------------------------------------*/
+	/* =========================================== */
+	// --- Core Functions ---
+	/* =========================================== */
 	
 	var core = {
 		
-		/*-------------------------------------------*/
-		//-- Initiate function
-		//-- Get the canvas and context, as well as 
-		//-- attach some listeners.
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Initiate function
+		// -- Get the canvas and context, as well as 
+		// -- attach some listeners.
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		init: function(){
 			globals.canvas = $('#board');
@@ -66,9 +69,26 @@
 			
 			containers.flags = $('#flags'); 
 			containers.mines = $('#mines');
-			containers.status = $('#gameOver');
+			containers.status = $('#status');
 			containers.time = $('#time');
-			containers.difficulty = $('#difficulty');
+			containers.msg = $('#msg');
+			
+			containers.easy = $('#easybtn');
+			containers.medium = $('#mediumbtn');
+			containers.insane = $('#insanebtn');
+			
+			var difarr = { 9: containers.easy, 6: containers.medium, 3: containers.insane};
+			
+			$.each(difarr, function(index, value){
+				value.live({
+					click: function(){
+						defaults.difficulty = index;
+						util.switchScreens();
+					}
+				});
+			});
+			
+			$('.gamescreen').hide();
 			
 			// Attach some listeners, at this point only mousedown
 			globals.canvas.live({
@@ -77,20 +97,15 @@
 				}	
 			});
 			
-			containers.difficulty.change(function(){
-				defaults.difficulty = $(this).val();
-				core.reset();
-			});
-			
 			// Initialize the board
 			core.setup();
 		},
 		
-		/*-------------------------------------------*/
-		//-- Reset function
-		//-- Resets the game, clears the timers, etc.
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Reset function
+		// -- Resets the game, clears the timers, etc.
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		reset: function(){	
 			
@@ -114,19 +129,22 @@
 			// Clear certain containers
 			containers.flags.html('');
 			containers.mines.html('');
-			containers.status.html('');
-			containers.time.html('');
+			containers.status.html('Game on :)');
+			containers.time.html('0');
+			containers.msg.html('Click on a square to start the game!');
 			
 			// Initialize the board
 			core.setup();
+			
+			//util.switchScreens();
 		},
 		
-		/*-------------------------------------------*/
-		//-- Setup function
-		//-- Sets up certain variables and draws the 
-		//-- board. Used during both init() and reset()
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Setup function
+		// -- Sets up certain variables and draws the 
+		// -- board. Used during both init() and reset()
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		setup: function(){
 			// Clear flagMap array
@@ -147,11 +165,11 @@
 			}
 		},
 		
-		/*-------------------------------------------*/
-		//-- Timer function
-		//-- Starts the clock
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Timer function
+		// -- Starts the clock
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		timer: function(){
 			// Setup global var timer
@@ -163,19 +181,19 @@
 		}
 	};
 	
-	/*-------------------------------------------*/
-	//--- Action Functions ---
-	/*-------------------------------------------*/
+	/* =========================================== */
+	// --- Action Functions ---
+	/* =========================================== */
 	
 	var action = {
 		
-		/*-------------------------------------------*/
-		//-- Click function
-		//-- listens to right and left mouse clicks
-		//-- and determines the proper cel and what 
-		//-- action to take.
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Click function
+		// -- listens to right and left mouse clicks
+		// -- and determines the proper cel and what 
+		// -- action to take.
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		click: function(e){
 			
@@ -185,13 +203,13 @@
 				l = (globals.revealedMap[x][y]) ? 1 : -1;
 			
 			// If left-click, not a flag and the game is still going on
-			if(e.which == 1 && globals.flagMap[x][y] != 1 && !globals.gameover){
+			if(e.which == 1 && globals.flagMap[x][y] != 1 && !globals.gameover && defaults.difficulty !== 0){
 				
 				// Is this the first click of the game?
 				if(globals.firstClick === true){
 					
 					// Set difficulty, based on default and difficulty selector, and start the timer
-					defaults.difficulty = containers.difficulty.val();
+					//defaults.difficulty = containers.difficulty.val();
 					core.timer();
 					
 					// Keep generating possible minemaps till one is generate where the square first clicked is not a mine
@@ -219,11 +237,11 @@
 			}	
 		},
 		
-		/*-------------------------------------------*/
-		//-- Hover function
-		//-- Speaks for itself
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Hover function
+		// -- Speaks for itself
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		hover: function(e){
 			
@@ -231,12 +249,12 @@
 			
 		},
 		
-		/*-------------------------------------------*/
-		//-- Index function
-		//-- Used to determine whether square is a mine
-		//-- or not 
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Index function
+		// -- Used to determine whether square is a mine
+		// -- or not 
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		index: function(x, y){
 			
@@ -289,11 +307,11 @@
 			}
 		},
 		
-		/*-------------------------------------------*/
-		//-- Flag function
-		//-- Used to flag a square
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Flag function
+		// -- Used to flag a square
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		flag: function(flag, x, y){
 			
@@ -314,6 +332,13 @@
 				}
 				
 				globals.context.putImageData(img, x * 20, y * 20);
+				
+				// Make sure proper styles are set
+				globals.context.strokeStyle = defaults.celStroke;
+				globals.context.fillStyle = defaults.celColor;
+			
+				util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+					
 				globals.flagMap[x][y] = 0;
 				globals.totalFlags--;
 			}
@@ -326,11 +351,11 @@
 			action.won();
 		},
 		
-		/*-------------------------------------------*/
-		//-- Won function
-		//-- Used to determine if the game has been won
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Won function
+		// -- Used to determine if the game has been won
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		won: function(){
 			
@@ -350,7 +375,7 @@
 			if(count === globals.totalMines){
 				// Set game over status
 				globals.gameover = true;
-				containers.status.html('You have won the game! A new game will start in 3 seconds');
+				containers.status.html('You won! :D');
 				
 				// Stops the timer and counts down to a reset of the game
 				window.clearInterval(globals.clock);
@@ -358,11 +383,11 @@
 			}
 		},
 		
-		/*-------------------------------------------*/
-		//-- Generate Mines function
-		//-- Places the mines on the field, at random
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Generate Mines function
+		// -- Places the mines on the field, at random
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		generateMines: function(){
 			
@@ -384,11 +409,11 @@
 			action.calculateMines();
 		},
 		
-		/*-------------------------------------------*/
-		//-- Calculate Mines function
-		//-- Used to calculate surrounding mines number
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Calculate Mines function
+		// -- Used to calculate surrounding mines number
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		calculateMines: function() {
 			
@@ -447,12 +472,12 @@
 			}
 		},
 		
-		/*-------------------------------------------*/
-		//-- Reveal Mines function
-		//-- Reveals all the mines and triggers a game
-		//-- over status
-		//-- @return void
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Reveal Mines function
+		// -- Reveals all the mines and triggers a game
+		// -- over status
+		// -- @return void
+		/* ------------------------------------------- */
 		
 		revealMines: function(mine){
 			
@@ -466,7 +491,8 @@
 			
 			// Set game over status
 			globals.gameover = true;
-			containers.status.html('Oops! You hit a mine\nYour game will restart in 3 seconds...');
+			containers.status.html('Game over :(');
+			containers.msg.html('A new game will start in 3 seconds.');
 			
 			// Stops the timer and counts down to a reset of the game
 			window.clearInterval(globals.clock);
@@ -474,18 +500,18 @@
 		}
 	};
 	
-	/*-------------------------------------------*/
-	//--- Utility Functions ---
-	/*-------------------------------------------*/
+	/* =========================================== */
+	// --- Utility Functions ---
+	/* =========================================== */
 	
 	var util = {
 		
-		/*-------------------------------------------*/
-		//-- Rounded Rectangle function
-		//-- Draws rounded rectangles
-		/*-------------------------------------------*/
+		/* ------------------------------------------- */
+		// -- Rounded Rectangle function
+		// -- Draws rounded rectangles
+		/* ------------------------------------------- */
 		
-		roundRect: function(x, y, width, height) {
+		roundRect: function(x, y, width, height){
 			globals.context.beginPath();
 			globals.context.moveTo(x + defaults.celRadius, y);
 			globals.context.lineTo(x + width - defaults.celRadius, y);
@@ -499,12 +525,27 @@
 			globals.context.closePath();
 			globals.context.stroke();
 			globals.context.fill();    
+		},
+		
+		switchScreens: function(){
+			if($('.startscreen').is(':hidden') == false){
+				$('.startscreen').fadeToggle(400, 'swing', function(){
+					core.reset();
+					$('.gamescreen').fadeToggle();
+				});		
+			}else{
+				$('.gamescreen').fadeToggle(400, 'swing', function(){
+					core.reset();
+					defaults.difficulty = 0;
+					$('.startscreen').fadeToggle();
+				});		
+			}
 		}
 	};
 	
-	/*-------------------------------------------*/
-	//--- Initiate Minesweeper ---
-	/*-------------------------------------------*/
+	/* =========================================== */
+	// --- Initiate Minesweeper ---
+	/* =========================================== */
 	
 	$(function(){
 		core.init();
@@ -512,33 +553,52 @@
 	
 	</script>
 </head>
-<body oncontextmenu="return false;">
-	<header>
-		<h1>HTML5 Minesweeper</h1>
-	</header>
-	<section>
-		<button onclick="core.reset();">Reset</button>
-		<select id="difficulty">
-			<option value="9">Easy</option>
-			<option value="6">Medium</option>
-			<option value="3">Hard</option>
-		</select>
-	</section>
-	<section>
-		<div>
-			<span id="gameOver"></span>
-			<span id="time"></span>
-			<span id="mines"></span>
-			<span id="flags"></span>
-		</div>
-	</section>
-	
-	<canvas id="board" width="400" height="400">
-		<p>Unfortunately, your browser does not seem to support the canvas element.</p>
-	</canvas>
 
-	<noscript>
-		<p>Unfortunately, your javascript is disabled. You will need to enable it in order to play the game.</p>
-	</noscript>
+<body>
+	<div class="container">
+		<header class="row">
+			<div class="sixcol">
+			<h1>HTML5 Minesweeper</h1>
+			</div>
+			<div class="sixcol last">
+				
+			</div>
+		</header>
+		<section class="row">
+			<div class="sixcol">
+				<canvas id="board" width="400" height="400" oncontextmenu="return false;">
+					<p>Unfortunately, your browser does not seem to support the canvas element.</p>
+				</canvas>
+			
+				<noscript>
+					<p>Unfortunately, your javascript is disabled. You will need to enable it in order to play the game.</p>
+				</noscript>
+			</div>
+			<div class="sixcol last">
+				<div class="startscreen">
+					<h1>Start Game</h1>
+					<p>Please choose a difficulty to get started.</p>
+					<button id="easybtn">Easy</button>
+					<button id="mediumbtn">Medium</button>
+					<button id="insanebtn">Insane</button>
+				</div>
+				
+				<div class="gamescreen">
+					<h1 id="status">Game on :)</h1>
+					<p id="msg">Click on a square to start the game!</p>
+					<button onclick="core.reset();">Reset</button>
+					<button onclick="util.switchScreens();">Change Difficulty</button>
+					<br>
+					<p><span id="time">0</span> seconds have passed</p>
+					<span id="mines"></span>
+					<span id="flags"></span>
+				</div>
+				
+				<a href="http://www.w3.org/html/logo/">
+					<img src="http://www.w3.org/html/logo/badge/html5-badge-h-css3-graphics.png" width="165" height="64" alt="HTML5 Powered with CSS3 / Styling, and Graphics, 3D &amp; Effects" title="HTML5 Powered with CSS3 / Styling, and Graphics, 3D &amp; Effects">
+				</a>
+			</div>
+		</section>
+	</div>
 </body>
 </html>
