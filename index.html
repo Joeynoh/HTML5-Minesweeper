@@ -89,6 +89,7 @@
 			containers.status = $('#status');
 			containers.time = $('#time');
 			containers.msg = $('#msg');
+			containers.scoreboard = $('#scoreboard');
 			
 			containers.easy = $('#easybtn');
 			containers.medium = $('#mediumbtn');
@@ -174,6 +175,7 @@
 			core.setup();
 			
 			window.clearInterval(globals.currentAnimation);
+			animation.walker();
 		},
 		
 		/* ------------------------------------------- */
@@ -288,17 +290,18 @@
 				l = (globals.revealedMap[x][y]) ? 1 : -1,
 				f = (globals.flagMap[x][y]) ? 1 : -1;
 			
+			var pX = globals.previous[0],
+				pY = globals.previous[1];
+			
+			if(typeof pX !== 'undefined' && globals.revealedMap[pX][pY] !== 1 && globals.flagMap[pX][pY] !== 1){
+				globals.context.fillStyle = defaults.celColor;
+				util.roundRect(globals.previous[0] * defaults.celSize, globals.previous[1] * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);	
+			}
+			
 			if(l < 0 && f < 0 && !globals.firstClick){
-				var pX = globals.previous[0],
-					pY = globals.previous[1];
-					
-				if(typeof pX !== 'undefined' && globals.revealedMap[pX][pY] !== 1 && globals.flagMap[pX][pY] !== 1){
-					globals.context.fillStyle = defaults.celColor;
-					util.roundRect(globals.previous[0] * 20, globals.previous[1] * 20, defaults.celSize - 1, defaults.celSize - 1);	
-				}
 				
 				globals.context.fillStyle = '#aaa';
-				util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+				util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
 				globals.previous[0] = x;
 				globals.previous[1] = y;
 			}
@@ -323,7 +326,7 @@
 					// 'remove square', by drawing a white one over it
 					globals.context.fillStyle = 'white';
 					globals.context.strokeStyle = 'white';
-					util.roundRect(x * 20, y * 20, defaults.celSize, defaults.celSize);
+					util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize, defaults.celSize);
 					
 					// Add revealed square to the revealed array
 					globals.revealedMap[x][y] = 1;
@@ -347,7 +350,7 @@
 						// Default colors for the index numbers in an array. [0] not having a color.
 						var colorMap = ['none', 'blue', 'green', 'red', 'black', 'orange', 'cyan'];
 						globals.context.fillStyle = colorMap[globals.mineMap[x][y]];
-						globals.context.fillText(globals.mineMap[x][y], (x * 20) + 5, (y * 20) + 16);
+						globals.context.fillText(globals.mineMap[x][y], (x * defaults.celSize) + 5, (y * defaults.celSize) + 16);
 						
 					}else{
 						
@@ -374,25 +377,25 @@
 			if(globals.flagMap[x][y] !== 1){
 				
 				// Draw flag
-				globals.context.drawImage(flag, x * 20, y * 20, 20, 20);
+				globals.context.drawImage(flag, x * defaults.celSize, y * defaults.celSize, defaults.celSize, defaults.celSize);
 				globals.flagMap[x][y] = 1;
 				globals.totalFlags++;
 				
 			}else{
 				
 				// Remove flag image
-				var img = globals.context.createImageData(20, 20);
+				var img = globals.context.createImageData(defaults.celSize, defaults.celSize);
 				for(var i = img.data.length; --i >= 0;){
 					img.data[i] = 0;
 				}
 				
-				globals.context.putImageData(img, x * 20, y * 20);
+				globals.context.putImageData(img, x * defaults.celSize, y * defaults.celSize);
 				
 				// Make sure proper styles are set
 				globals.context.strokeStyle = defaults.celStroke;
 				globals.context.fillStyle = defaults.celColor;
 			
-				util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+				util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
 					
 				globals.flagMap[x][y] = 0;
 				globals.totalFlags--;
@@ -539,9 +542,9 @@
 			// Draw all the mines
 			for(var i = 0; i < globals.squaresX; i++){
 				for(var j = 0; j < globals.squaresY; j++){
-                                  if(globals.mineMap[i][j] === -1){
-					globals.context.drawImage(mine, i * 20, j * 20, 20, 20);
-                                  }
+					if(globals.mineMap[i][j] === -1){
+						globals.context.drawImage(mine, i * defaults.celSize, j * defaults.celSize, defaults.celSize, defaults.celSize);
+					}
 				}
 			}
 			
@@ -572,36 +575,34 @@
 				
 					var lScores = JSON.parse(localStorage.scores);
 					
-					$('#scoreboard').html('<tr><th>Name</th><th>Mines</th><th>Seconds</th></tr>');
+					containers.scoreboard.html('<tr><th>Name</th><th>Mines</th><th>Seconds</th></tr>');
 					
 					$.each(lScores, function(){
-						$('#scoreboard').append('<tr><td>' + this[0] + '</td><td>' + this[2] + '</td><td>' + this[3] + '</td></tr>');	
+						containers.scoreboard.append('<tr><td>' + this[0] + '</td><td>' + this[2] + '</td><td>' + this[3] + '</td></tr>');	
 					});
 				
 				}else{
 					
-					$('#scoreboard').html('<tr><td>You have not won any games yet :(</td></tr>');
+					containers.scoreboard.html('<tr><td>You have not won any games yet :(</td></tr>');
 				}
 			
 			}else{
-				$('#scoreboard').html('<tr><td>Unfortunately, your browser does not support local storage</td></tr>');				
+				containers.scoreboard.html('<tr><td>Unfortunately, your browser does not support local storage</td></tr>');				
 			}	
 			
 		},
 		
 		save: function(){
 			
-			var name = prompt('Your score is being stored. Please enter your name','Name'),
-				scores = JSON.parse(localStorage.scores);
-			
-			scores.push([name, 'Insane', globals.totalMines, globals.elapsedTime, 10000]);
+			if(typeof Storage !== 'undefined'){
 				
-			localStorage.scores = JSON.stringify(scores);
-			
-			if(localStorage.scores === JSON.stringify(scores)){
-				return true;	
-			}else{
-				return false;	
+				var name = prompt('Your score is being stored. Please enter your name','Name'),
+					score = [name, 'Insane', globals.totalMines, globals.elapsedTime, 10000];
+
+				var scores = (typeof localStorage.scores !== 'undefined') ? JSON.parse(localStorage.scores) : new Array();
+				
+				scores.push(score);
+				localStorage.scores = JSON.stringify(scores);
 			}
 		}
 			
@@ -634,7 +635,7 @@
 				animation.standardBoard();
 				
 				globals.context.fillStyle = '#f16529';
-				util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+				util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
 				
 				x++;
 				
@@ -657,7 +658,7 @@
 				globals.context.fillStyle = '#f16529';
 				
 				for(var x = 0; x <= globals.squaresX; x++){
-					util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+					util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
 				}
 				
 				if(y === globals.squaresY){
@@ -681,7 +682,7 @@
 				globals.context.fillStyle = '#f16529';
 				
 				
-				util.roundRect(x * 20, 10 * 20, defaults.celSize - 1, defaults.celSize - 1);
+				util.roundRect(x * defaults.celSize, 10 * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
 				
 				if(dir === 0 && x === globals.squaresX){
 					dir = 1;
@@ -736,7 +737,7 @@
 			
 				for(var i = 0; i <= arrow.length; i++){
 					if(arrow[i] !== undefined){
-						util.roundRect(arrow[i][0] * 20, arrow[i][1] * 20, defaults.celSize - 1, defaults.celSize - 1);	
+						util.roundRect(arrow[i][0] * defaults.celSize, arrow[i][1] * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);	
 					}
 				}
 				
@@ -789,15 +790,12 @@
 			if($('.startscreen').is(':hidden') === false){
 				$('.startscreen').fadeToggle(400, 'swing', function(){
 					core.reset();
-					window.clearInterval(globals.currentAnimation);
-					animation.walker();
 					$('.gamescreen').fadeToggle();
 				});		
 			}else{
 				$('.gamescreen').fadeToggle(400, 'swing', function(){
 					core.reset();
 					defaults.difficulty = 0;
-					animation.arrow();
 					$('.startscreen').fadeToggle();
 				});		
 			}
