@@ -3,6 +3,15 @@ HTML5-Minesweeper
 
 Minesweeper game using jQuery and HTML5 canvas.
 
+v2.0
+====
+- Brand new and more completely UI
+- Better interaction
+- Custom animations on the playingfield
+- New images
+- Scoreboard and use of local storage for scores
+- Refactoring and optimization
+
 v1.5
 ====
 - Some bug fixes
@@ -21,11 +30,7 @@ v1.0
 
 TODO
 ====
-- Add some decent images
-- Store scores
-- Score board
-- Set difficulty function
-- Animations
+- Score algorithm
 
 
 Inspired by: 
