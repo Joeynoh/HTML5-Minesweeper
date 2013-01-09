@@ -7,9 +7,12 @@
 	<link rel="stylesheet" media="screen" type="text/css" href="css/styles.css" />
 	<link href='http://fonts.googleapis.com/css?family=Open+Sans:300,600,700' rel='stylesheet' type='text/css'>
 	
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
 	
 	<script type="text/javascript">
+	
+	$(function(){
+		"use strict";
 	
 	/* =========================================== */
 	// --- Global & Default Variables --- 
@@ -25,9 +28,13 @@
 		elapsedTime: 0,
 		clock: '',
 		restart: '',
-		mineMap: new Array(20),
-		flagMap: new Array(20),
-		revealedMap: new Array(20)
+		mineMap: '',
+		flagMap: '',
+		revealedMap: '',
+		currentAnimation: '',
+		previous: new Array(2),
+		squaresX: '',
+		squaresY: ''
 	},
 	
 	defaults = {
@@ -37,11 +44,11 @@
 		height: 400,
 		background: 'white',
 		font: '13pt Arial',
-		celColor: '#ccc',
+		celColor: '#dadada',
 		celStroke: 'white',
 		celRadius: 5,
-		mineImg: 'http://images4.wikia.nocookie.net/__cb20100714194517/sims/images/3/31/Moodlet_icon_amused_fun.png',
-		flagImg: 'http://www.mricons.com/store/png/116766_34244_32_antivirus_protection_red_shield_icon.png'
+		mineImg: 'images/mine.png',
+		flagImg: 'images/flag.png'
 	},
 	
 	containers = {
@@ -67,6 +74,16 @@
 			globals.context.background = defaults.background;
 			globals.context.font = defaults.font;
 			
+			defaults.width = globals.canvas.width();
+			globals.squaresX = Math.floor(defaults.width / defaults.celSize);
+			globals.squaresY = Math.floor(defaults.height / defaults.celSize);
+			
+			console.log(globals.squaresX + ', ' + globals.squaresY);
+			
+			globals.mineMap = new Array(globals.squaresX);
+			globals.flagMap = new Array(globals.squaresX);
+			globals.revealedMap = new Array(globals.squaresX);
+			
 			containers.flags = $('#flags'); 
 			containers.mines = $('#mines');
 			containers.status = $('#status');
@@ -76,11 +93,13 @@
 			containers.easy = $('#easybtn');
 			containers.medium = $('#mediumbtn');
 			containers.insane = $('#insanebtn');
+			containers.switchscreens = $('#switchscreens');
+			containers.reset = $('#reset');
 			
 			var difarr = { 9: containers.easy, 6: containers.medium, 3: containers.insane};
 			
 			$.each(difarr, function(index, value){
-				value.live({
+				value.on({
 					click: function(){
 						defaults.difficulty = index;
 						util.switchScreens();
@@ -88,17 +107,35 @@
 				});
 			});
 			
+			containers.switchscreens.on({
+				click: function(){
+					util.switchScreens();
+				}
+			});
+			
+			containers.reset.on({
+				click: function(){
+					core.reset();
+				}
+			});
+		
 			$('.gamescreen').hide();
 			
 			// Attach some listeners, at this point only mousedown
-			globals.canvas.live({
-				'mousedown': function(e){
+			globals.canvas.on({
+				mousedown: function(e){
 					action.click(e);
-				}	
+				},
+				mousemove: function(e){
+					action.hover(e);	
+				}
 			});
 			
 			// Initialize the board
 			core.setup();
+			
+			//animation.arrow();
+	
 		},
 		
 		/* ------------------------------------------- */
@@ -114,7 +151,7 @@
 			window.clearInterval(globals.restart);
 		
 			// Wipe the canvas clean
-			globals.context.clearRect(0,0,400,400);
+			globals.context.clearRect(0,0,defaults.width,defaults.height);
 			
 			// Reset all global vars to their default value
 			globals.gameover = false;
@@ -122,9 +159,9 @@
 			globals.totalMines = 0;
 			globals.totalFlags = 0;
 			globals.elapsedTime = 0;
-			globals.mineMap = new Array(20);
-			globals.flagMap = new Array(20);
-			globals.revealedMap = new Array(20);
+			globals.mineMap = new Array(globals.squaresX);
+			globals.flagMap = new Array(globals.squaresX);
+			globals.revealedMap = new Array(globals.squaresX);
 			
 			// Clear certain containers
 			containers.flags.html('');
@@ -136,7 +173,7 @@
 			// Initialize the board
 			core.setup();
 			
-			//util.switchScreens();
+			window.clearInterval(globals.currentAnimation);
 		},
 		
 		/* ------------------------------------------- */
@@ -148,21 +185,18 @@
 		
 		setup: function(){
 			// Clear flagMap array
-			for(var k = 0; k < 20; k++){
-				globals.flagMap[k] = Array(20);
-				globals.revealedMap[k] = Array(20);
+			for(var k = 0; k < globals.squaresX; k++){
+				globals.flagMap[k] = Array(globals.squaresY);
+				globals.revealedMap[k] = Array(globals.squaresY);
 			}
+			
+			scores.display();
 			
 			// Make sure proper styles are set
 			globals.context.strokeStyle = defaults.celStroke;
 			globals.context.fillStyle = defaults.celColor;
 			
-			// Draw all the rounded squares
-			for(var i = 0; i <= defaults.width; i = i + 20){
-				for(var j = 0; j <= defaults.height; j = j + 20){
-					util.roundRect(i, j, defaults.celSize - 1, defaults.celSize - 1);
-				} 
-			}
+			animation.standardBoard();
 		},
 		
 		/* ------------------------------------------- */
@@ -177,7 +211,7 @@
 				globals.elapsedTime++;
 				// Append time to #time
 				containers.time.html(globals.elapsedTime);
-			}, 1000)	
+			}, 1000);	
 		}
 	};
 	
@@ -203,19 +237,22 @@
 				l = (globals.revealedMap[x][y]) ? 1 : -1;
 			
 			// If left-click, not a flag and the game is still going on
-			if(e.which == 1 && globals.flagMap[x][y] != 1 && !globals.gameover && defaults.difficulty !== 0){
+			if(e.which === 1 && globals.flagMap[x][y] !== 1 && !globals.gameover && defaults.difficulty !== 0){
 				
 				// Is this the first click of the game?
 				if(globals.firstClick === true){
+					
+					window.clearInterval(globals.currentAnimation);
+					animation.standardBoard();
 					
 					// Set difficulty, based on default and difficulty selector, and start the timer
 					//defaults.difficulty = containers.difficulty.val();
 					core.timer();
 					
 					// Keep generating possible minemaps till one is generate where the square first clicked is not a mine
-					do
-						action.generateMines(globals.mineMap);
-					while(globals.mineMap[x][y] == -1);
+					do{
+						action.generateMines(globals.mineMap); 
+					}while(globals.mineMap[x][y] === -1);
 					
 					// Set number of mines
 					containers.mines.html('You have to find ' + globals.totalMines + ' mines to win.');
@@ -226,7 +263,7 @@
 				action.index(x, y);
 			
 			// If right-click, game is not over, square has not been revealed and this is not the first click	
-			}else if(e.which == 3 && !globals.gameover && l < 0 && globals.firstClick !== true){
+			}else if(e.which === 3 && !globals.gameover && l < 0 && globals.firstClick !== true){
 				
 				// Flag the square
 				var flag = new Image();
@@ -245,8 +282,26 @@
 		
 		hover: function(e){
 			
-			// TODO Some fancy hover stuff
+			// Calculate x & y relevant to the cel size, also (l) check if current x,y combo has already been revealed
+			var x = Math.floor((e.pageX - globals.canvas[0].offsetLeft - 1) / defaults.celSize),
+				y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
+				l = (globals.revealedMap[x][y]) ? 1 : -1,
+				f = (globals.flagMap[x][y]) ? 1 : -1;
 			
+			if(l < 0 && f < 0 && !globals.firstClick){
+				var pX = globals.previous[0],
+					pY = globals.previous[1];
+					
+				if(typeof pX !== 'undefined' && globals.revealedMap[pX][pY] !== 1 && globals.flagMap[pX][pY] !== 1){
+					globals.context.fillStyle = defaults.celColor;
+					util.roundRect(globals.previous[0] * 20, globals.previous[1] * 20, defaults.celSize - 1, defaults.celSize - 1);	
+				}
+				
+				globals.context.fillStyle = '#aaa';
+				util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+				globals.previous[0] = x;
+				globals.previous[1] = y;
+			}
 		},
 		
 		/* ------------------------------------------- */
@@ -259,7 +314,7 @@
 		index: function(x, y){
 			
 			// If square is not revealed, is within boundaries and exists
-			if(x >= 0 && y >= 0 && x <= 20 && y <= 20 && globals.mineMap[x] != undefined){
+			if(x >= 0 && y >= 0 && x <= globals.squaresX && y <= globals.squaresY && globals.mineMap[x] !== undefined){
 				
 				var l = (globals.revealedMap[x][y]) ? 1 : -1;
 				
@@ -280,14 +335,14 @@
 						for(var i = -1; i <= 1; i++){
 							for(var j = -1; j <= 1; j++){
 								// If a neighboring square is also not surrounded by mines, remove his neighbors also; and repeat
-								if(l < 0 && x + i >= 0 && y + j >= 0 && x + i <= 20 && y + j <= 20){
+								if(l < 0 && x + i >= 0 && y + j >= 0 && x + i <= globals.squaresX && y + j <= globals.squaresX){
 									action.index(x + i, y + j);
 								}
 							}
 						}
 						
 					// If the square does not cover a mine, display the index number
-					}else if(globals.mineMap[x][y] != -1){
+					}else if(globals.mineMap[x][y] !== -1){
 						
 						// Default colors for the index numbers in an array. [0] not having a color.
 						var colorMap = ['none', 'blue', 'green', 'red', 'black', 'orange', 'cyan'];
@@ -316,7 +371,7 @@
 		flag: function(flag, x, y){
 			
 			// If square is not already flagged
-			if(globals.flagMap[x][y] != 1){
+			if(globals.flagMap[x][y] !== 1){
 				
 				// Draw flag
 				globals.context.drawImage(flag, x * 20, y * 20, 20, 20);
@@ -328,7 +383,7 @@
 				// Remove flag image
 				var img = globals.context.createImageData(20, 20);
 				for(var i = img.data.length; --i >= 0;){
-				  img.data[i] = 0;
+					img.data[i] = 0;
 				}
 				
 				globals.context.putImageData(img, x * 20, y * 20);
@@ -363,9 +418,9 @@
 			var count = 0;
 			
 			// Count the number of flagged mines 
-			for(var i = 0; i < 20; i++){
-				for(var j = 0; j < 20; j++){
-					if((globals.flagMap[i][j] == 1 ) && (globals.mineMap[i][j] == -1)){
+			for(var i = 0; i < globals.squaresX; i++){
+				for(var j = 0; j < globals.squaresY; j++){
+					if((globals.flagMap[i][j] === 1 ) && (globals.mineMap[i][j] === -1)){
 						count++;
 					} 
 				}
@@ -377,9 +432,11 @@
 				globals.gameover = true;
 				containers.status.html('You won! :D');
 				
+				scores.save();
+				
 				// Stops the timer and counts down to a reset of the game
 				window.clearInterval(globals.clock);
-				globals.restart = setTimeout("core.reset();",3000);
+				globals.restart = setTimeout(function(){ core.reset() },3000);
 			}
 		},
 		
@@ -392,11 +449,11 @@
 		generateMines: function(){
 			
 			// For every square
-			for(var i = 0; i < 20; i++){
-				globals.mineMap[i] = new Array(20);
+			for(var i = 0; i < globals.squaresX; i++){
+				globals.mineMap[i] = new Array(globals.squaresX);
 				
 				// The lower the dificulty, the more mines
-				for(var j = 0; j < 20; j++){
+				for(var j = 0; j < globals.squaresY; j++){
 					globals.mineMap[i][j] = Math.floor((Math.random() * defaults.difficulty) - 1);
 					
 					if(globals.mineMap[i][j] > 0){
@@ -421,43 +478,41 @@
 			globals.totalMines = 0;
 			
 			// Check every square
-			for(var i = 0; i < 20; i++){
-				for(var j = 0; j < 20; j++){
+			for(var i = 0; i < globals.squaresX; i++){
+				for(var j = 0; j < globals.squaresY; j++){
 					
 					//If the square is not a mine; calculate its surround mine number
-					if(globals.mineMap[i][j] != -1){
-						//N
-						if(j > 0 && globals.mineMap[i][j-1] == -1){
-							mineCount++;
-						}
-						//NW
-						if(i > 0 && j > 0 && globals.mineMap[i-1][j-1] == -1){
-							mineCount++;
-						}
-						//NE
-						if(j > 0 && i < 19 && globals.mineMap[i+1][j-1] == -1){
-							mineCount++;
-						}
-						//E
-						if(i < 19 && globals.mineMap[i+1][j] == -1){
-							mineCount++;
-						}
-						//W
-						if(i > 0 && globals.mineMap[i-1][j] == -1){
-							mineCount++;
-						}
-						//S
-						if(j < 19 && globals.mineMap[i][j+1] == -1){
-							mineCount++;
-						}
-						//SW
-						if(i > 0 && j < 19 && globals.mineMap[i-1][j+1] == -1 ){
-							mineCount++;
-						}
-						//SE
-						if(i < 19 && j < 19 && globals.mineMap[i+1][j+1]){
-							mineCount++;
-						} 
+					if(globals.mineMap[i][j] !== -1){
+						
+							var xArr = [i, i + 1, i - 1],
+								yArr = [j, j + 1, j - 1];
+							
+							/*
+							
+							The loop iterates over the surrounding squares as shown below:
+							
+							-------------------------
+							| i - 1 |   i   | i + 1 |
+							| j - 1 | j - 1 | j - 1 |
+							-------------------------
+							| i - 1 |   i   | i + 1 |
+							|   j   |   j   |   j   |
+							-------------------------
+							| i - 1 |   i   | i + 1 |
+							| j + 1 | j - 1 | j + 1 |
+							-------------------------	
+							
+							*/				
+	
+							for(var a = 0; a < 3; a++){
+								for(var b = 0; b < 3; b++){
+									if(typeof globals.mineMap[xArr[a]] !== 'undefined' && typeof globals.mineMap[xArr[a]][yArr[b]] !== 'undefined' && globals.mineMap[xArr[a]][yArr[b]] === -1){
+										
+										mineCount++;
+										
+									}
+								}
+							}
 						
 						// Save number and reset the counter
 						globals.mineMap[i][j] = mineCount;
@@ -482,10 +537,11 @@
 		revealMines: function(mine){
 			
 			// Draw all the mines
-			for(var i = 0; i < 20; i++){
-				for(var j = 0; j < 20; j++){
-					if(globals.mineMap[i][j] == -1)
-						globals.context.drawImage(mine, i * 20, j * 20, 20, 20);
+			for(var i = 0; i < globals.squaresX; i++){
+				for(var j = 0; j < globals.squaresY; j++){
+                                  if(globals.mineMap[i][j] === -1){
+					globals.context.drawImage(mine, i * 20, j * 20, 20, 20);
+                                  }
 				}
 			}
 			
@@ -496,8 +552,205 @@
 			
 			// Stops the timer and counts down to a reset of the game
 			window.clearInterval(globals.clock);
-			globals.restart = setTimeout("core.reset();",3000);
+			globals.restart = setTimeout(function(){ core.reset() },3000);
 		}
+	};
+	
+	/* =========================================== */
+	// --- Scores Functions ---
+	/* =========================================== */
+	
+	var scores = {
+		
+		display: function(){
+			
+			if(typeof Storage !== 'undefined'){
+				
+				//delete localStorage.scores;
+				
+				if(typeof localStorage.scores !== 'undefined'){
+				
+					var lScores = JSON.parse(localStorage.scores);
+					
+					$('#scoreboard').html('<tr><th>Name</th><th>Mines</th><th>Seconds</th></tr>');
+					
+					$.each(lScores, function(){
+						$('#scoreboard').append('<tr><td>' + this[0] + '</td><td>' + this[2] + '</td><td>' + this[3] + '</td></tr>');	
+					});
+				
+				}else{
+					
+					$('#scoreboard').html('<tr><td>You have not won any games yet :(</td></tr>');
+				}
+			
+			}else{
+				$('#scoreboard').html('<tr><td>Unfortunately, your browser does not support local storage</td></tr>');				
+			}	
+			
+		},
+		
+		save: function(){
+			
+			var name = prompt('Your score is being stored. Please enter your name','Name'),
+				scores = JSON.parse(localStorage.scores);
+			
+			scores.push([name, 'Insane', globals.totalMines, globals.elapsedTime, 10000]);
+				
+			localStorage.scores = JSON.stringify(scores);
+			
+			if(localStorage.scores === JSON.stringify(scores)){
+				return true;	
+			}else{
+				return false;	
+			}
+		}
+			
+	};
+	
+	/* =========================================== */
+	// --- Animation Functions ---
+	/* =========================================== */
+	
+	var animation = {
+		
+		standardBoard: function(){
+			
+			globals.context.fillStyle = defaults.celColor;
+				
+			for(var i = 0; i <= globals.squaresX; i++){
+				for(var j = 0; j <= globals.squaresY; j++){
+					util.roundRect(i * defaults.celSize, j * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+				} 
+			}
+		},
+		
+		walker: function(){
+			// Make sure proper styles are set
+			globals.context.strokeStyle = defaults.celStroke;
+			
+			var x = 0, y = 0;
+			globals.currentAnimation = setInterval(function(){
+				
+				animation.standardBoard();
+				
+				globals.context.fillStyle = '#f16529';
+				util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+				
+				x++;
+				
+				if(x === globals.squaresX){ x = 0; y++; }
+				
+				if(y === globals.squaresY){ x = 0; y = 0; }
+			
+			}, 30);
+		}, 
+		
+		topDown: function(){
+			// Make sure proper styles are set
+			globals.context.strokeStyle = defaults.celStroke;
+			
+			var y = 0;
+			globals.currentAnimation = setInterval(function(){
+				
+				animation.standardBoard();
+				
+				globals.context.fillStyle = '#f16529';
+				
+				for(var x = 0; x <= globals.squaresX; x++){
+					util.roundRect(x * 20, y * 20, defaults.celSize - 1, defaults.celSize - 1);
+				}
+				
+				if(y === globals.squaresY){
+					y = 0;
+				}
+				
+				y++;
+			
+			}, 50);
+		},
+		
+		leftRight: function(){
+			
+			globals.context.strokeStyle = defaults.celStroke;
+			
+			var x = 0, dir = 0;
+			globals.currentAnimation = setInterval(function(){
+				
+				animation.standardBoard();
+				
+				globals.context.fillStyle = '#f16529';
+				
+				
+				util.roundRect(x * 20, 10 * 20, defaults.celSize - 1, defaults.celSize - 1);
+				
+				if(dir === 0 && x === globals.squaresX){
+					dir = 1;
+				}else if(dir === 1 && x === -1){
+					dir = 0;
+				}
+				
+				if(dir === 0){
+					x++;	
+				}else if(dir === 1){
+					x--;
+				}
+			
+			}, 50);
+		},
+		
+		arrow: function(){
+			
+			var longArrow = [
+				[5, 9], [5, 10], [5, 11],
+				[6, 9], [6, 10], [6, 11],
+				[7, 9], [7, 10], [7, 11],
+				[8, 9], [8, 10], [8, 11],
+				[9, 9], [9, 10], [9, 11],
+				[10, 9], [10, 10], [10, 11],
+				[11, 9], [11, 10], [11, 11],
+				
+				[12, 8], [12, 9], [12, 10], [12, 11], [12, 12],
+				[13, 9], [13, 10], [13, 11],
+				[14, 10]
+			], 
+			shortArrow = [
+				[5, 9], [5, 10], [5, 11],
+				[6, 9], [6, 10], [6, 11],
+				[7, 9], [7, 10], [7, 11],
+				[8, 9], [8, 10], [8, 11],
+				[9, 9], [9, 10], [9, 11],
+				[10, 9], [10, 10], [10, 11],
+				
+				[11, 8], [11, 9], [11, 10], [11, 11], [11, 12],
+				[12, 9], [12, 10], [12, 11],
+				[13, 10]
+			],
+			x = 0,
+			arrow = shortArrow;
+			
+			globals.currentAnimation = setInterval(function(){	
+			
+				animation.standardBoard();
+			
+				globals.context.fillStyle = '#f16529';
+			
+				for(var i = 0; i <= arrow.length; i++){
+					if(arrow[i] !== undefined){
+						util.roundRect(arrow[i][0] * 20, arrow[i][1] * 20, defaults.celSize - 1, defaults.celSize - 1);	
+					}
+				}
+				
+				if(x % 2 === 0){
+					arrow = longArrow;
+				}else{
+					arrow = shortArrow;
+				}
+				
+				x++;
+				
+			}, 200);
+		}
+		
 	};
 	
 	/* =========================================== */
@@ -527,16 +780,24 @@
 			globals.context.fill();    
 		},
 		
+		/* ------------------------------------------- */
+		// -- Switch Screens function
+		// -- Switch between start and game screen
+		/* ------------------------------------------- */
+		
 		switchScreens: function(){
-			if($('.startscreen').is(':hidden') == false){
+			if($('.startscreen').is(':hidden') === false){
 				$('.startscreen').fadeToggle(400, 'swing', function(){
 					core.reset();
+					window.clearInterval(globals.currentAnimation);
+					animation.walker();
 					$('.gamescreen').fadeToggle();
 				});		
 			}else{
 				$('.gamescreen').fadeToggle(400, 'swing', function(){
 					core.reset();
 					defaults.difficulty = 0;
+					animation.arrow();
 					$('.startscreen').fadeToggle();
 				});		
 			}
@@ -547,7 +808,6 @@
 	// --- Initiate Minesweeper ---
 	/* =========================================== */
 	
-	$(function(){
 		core.init();
 	});
 	
@@ -555,6 +815,8 @@
 </head>
 
 <body>
+	<a href="https://github.com/Joeynoh/HTML5-Minesweeper"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_left_darkblue_121621.png" alt="Fork me on GitHub"></a>
+
 	<div class="container">
 		<header class="row">
 			<div class="sixcol">
@@ -565,8 +827,8 @@
 			</div>
 		</header>
 		<section class="row">
-			<div class="sixcol">
-				<canvas id="board" width="400" height="400" oncontextmenu="return false;">
+			<div class="eightcol">
+				<canvas id="board" width="600" height="400" oncontextmenu="return false;">
 					<p>Unfortunately, your browser does not seem to support the canvas element.</p>
 				</canvas>
 			
@@ -574,31 +836,56 @@
 					<p>Unfortunately, your javascript is disabled. You will need to enable it in order to play the game.</p>
 				</noscript>
 			</div>
-			<div class="sixcol last">
+			<div class="fourcol last">
 				<div class="startscreen">
 					<h1>Start Game</h1>
 					<p>Please choose a difficulty to get started.</p>
 					<button id="easybtn">Easy</button>
 					<button id="mediumbtn">Medium</button>
 					<button id="insanebtn">Insane</button>
+				
+					
+					<h1>Games You Won</h1>
+					<table id="scoreboard">
+						<tr>
+							<th>Name</th>
+							<th>Mines</th>
+							<th>Seconds</th>
+						</tr>
+					</table>
+					
 				</div>
 				
 				<div class="gamescreen">
 					<h1 id="status">Game on :)</h1>
 					<p id="msg">Click on a square to start the game!</p>
-					<button onclick="core.reset();">Reset</button>
-					<button onclick="util.switchScreens();">Change Difficulty</button>
+					<button id="reset">Reset</button>
+					<button id="switchscreens">Change Difficulty</button>
 					<br>
 					<p><span id="time">0</span> seconds have passed</p>
 					<span id="mines"></span>
 					<span id="flags"></span>
 				</div>
-				
-				<a href="http://www.w3.org/html/logo/">
-					<img src="http://www.w3.org/html/logo/badge/html5-badge-h-css3-graphics.png" width="165" height="64" alt="HTML5 Powered with CSS3 / Styling, and Graphics, 3D &amp; Effects" title="HTML5 Powered with CSS3 / Styling, and Graphics, 3D &amp; Effects">
-				</a>
 			</div>
 		</section>
+		<footer class="row">
+			<div class="threecol">
+				<a href="http://www.w3.org/html/logo/">
+<img src="http://www.w3.org/html/logo/badge/html5-badge-h-css3-graphics-semantics-storage.png" width="229" height="64" alt="HTML5 Powered with CSS3 / Styling, Graphics, 3D &amp; Effects, Semantics, and Offline &amp; Storage" title="HTML5 Powered with CSS3 / Styling, Graphics, 3D &amp; Effects, Semantics, and Offline &amp; Storage">
+</a>
+			</div>
+			<div class="fourcol">
+				<a href="https://github.com/Joeynoh/HTML5-Minesweeper" class="git">
+					<img src="images/git.jpg" width="48" height="48" alt="Open Source HTML5 Minesweeper game">
+					Follow this project on Github!
+				</a>
+			</div>
+			<div class="fivecol last">
+				<p class="desc">
+					This project was started to get more comfortable with HTML5's canvas, but quickly turned into an attempt to modernize Minesweeper and add as many features as possible.
+				</p>
+			</div>
+		</footer>
 	</div>
 </body>
 </html>
