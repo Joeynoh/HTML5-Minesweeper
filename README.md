@@ -30,6 +30,9 @@ Online demo can be found here: http://joeyvo.me/HTML5-minesweeper/
 TODO
 ----
 - Score algorithm
+- Speed solving
+- Remove obscure ribbon
+- Adjust mine index algorithm
 
 
 Inspired by: 
