@@ -3,6 +3,8 @@ HTML5-Minesweeper
 
 Minesweeper game using jQuery and HTML5 canvas.
 
+Online demo can be found here: http://joeyvo.me/HTML5-minesweeper/
+
 v2.0
 ====
 - Brand new and more completely UI
