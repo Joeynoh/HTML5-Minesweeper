@@ -1,12 +1,11 @@
 HTML5-Minesweeper
-=================
+-----------------
 
 Minesweeper game using jQuery and HTML5 canvas.
 
 Online demo can be found here: http://joeyvo.me/HTML5-minesweeper/
 
-v2.0
-====
+### v2.0
 - Brand new and more completely UI
 - Better interaction
 - Custom animations on the playingfield
@@ -14,14 +13,12 @@ v2.0
 - Scoreboard and use of local storage for scores
 - Refactoring and optimization
 
-v1.5
-====
+### v1.5
 - Some bug fixes
 - New UI
 - New difficulty features
 
-v1.0
-====
+### v1.0
 - Click on empty square, reveal larger space up until other numbered squares
 - Timer
 - Better grid, using rounded squares
@@ -31,7 +28,7 @@ v1.0
 - Game automatically resets 3 seconds after the end of the game
 
 TODO
-====
+----
 - Score algorithm
 
 
