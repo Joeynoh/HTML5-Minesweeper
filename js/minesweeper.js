@@ -351,13 +351,13 @@ var action = {
 			
 			if(typeof pX !== 'undefined' && globals.revealedMap[pX][pY] !== 1 && globals.flagMap[pX][pY] !== 1){
 				globals.context.fillStyle = defaults.celColor;
-				util.roundRect(globals.previous[0] * defaults.celSize, globals.previous[1] * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1); 
+				util.roundRect(globals.previous[0], globals.previous[1]); 
 			}
 			
 			if(l < 0 && f < 0 && !globals.firstClick){
 				
 				globals.context.fillStyle = '#aaa';
-				util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+				util.roundRect(x, y);
 				globals.previous[0] = x;
 				globals.previous[1] = y;
 			}
@@ -378,18 +378,48 @@ var action = {
       
       var l = (globals.revealedMap[x][y]) ? 1 : -1;
       
-      if(l < 0){
-      
-        // 'remove square', by drawing a white one over it
-        globals.context.fillStyle = 'white';
-        globals.context.strokeStyle = 'white';
-        util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize, defaults.celSize);
+      if(!util.is('revealed', x, y)){
         
         // Add revealed square to the revealed array
         globals.revealedMap[x][y] = 1;
         
+				if(globals.mineMap[x][y] !== -1){
+					// 'remove square', by drawing a white one over it
+					var alpha = 0.1,
+					squareFade = setInterval(function(){
+						globals.context.strokeStyle = 'white';
+						globals.context.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+						util.roundRect(x, y);
+							
+						if(globals.mineMap[x][y] !== -1){
+					
+							// Default colors for the index numbers in an array. [0] not having a color.
+							var colorMap = ['none', 'blue', 'green', 'red',  'black', 'orange', 'cyan'];
+							globals.context.fillStyle = colorMap[globals.mineMap[x][y]];
+							globals.context.fillText(globals.mineMap[x][y], (x * defaults.celSize) + 5, (y * defaults.celSize) + 16);	
+						}
+						
+						alpha = alpha + .1;
+						
+						console.log(alpha);
+						
+						if(alpha > 1){
+							window.clearInterval(squareFade);
+						}
+					}, 50);
+				
         // If the square that was clicked has no surrounding mines...
-        if(globals.mineMap[x][y] === 0){
+				}else{
+          
+          // If unforutantely there is mine, display it and trigger the function leading to the end of the game
+          var mine = new Image();
+          mine.src = defaults.mineImg;
+          mine.onload = function() {
+            action.revealMines(mine);
+          };
+        }
+				
+				if(globals.mineMap[x][y] === 0){
           
           // remove all neighbors till squares are found that do have surrounding mines
           for(var i = -1; i <= 1; i++){
@@ -402,21 +432,6 @@ var action = {
           }
           
         // If the square does not cover a mine, display the index number
-        }else if(globals.mineMap[x][y] !== -1){
-          
-          // Default colors for the index numbers in an array. [0] not having a color.
-          var colorMap = ['none', 'blue', 'green', 'red', 'black', 'orange', 'cyan'];
-          globals.context.fillStyle = colorMap[globals.mineMap[x][y]];
-          globals.context.fillText(globals.mineMap[x][y], (x * defaults.celSize) + 5, (y * defaults.celSize) + 16);
-          
-        }else{
-          
-          // If unforutantely there is mine, display it and trigger the function leading to the end of the game
-          var mine = new Image();
-          mine.src = defaults.mineImg;
-          mine.onload = function() {
-            action.revealMines(mine);
-          };
         }
       }
     }
@@ -452,7 +467,7 @@ var action = {
       globals.context.strokeStyle = defaults.celStroke;
       globals.context.fillStyle = defaults.celColor;
     
-      util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+      util.roundRect(x, y);
         
       globals.flagMap[x][y] = 0;
       globals.totalFlags--;
@@ -664,7 +679,7 @@ var animation = {
       
     for(var i = 0; i <= globals.squaresX; i++){
       for(var j = 0; j <= globals.squaresY; j++){
-        util.roundRect(i * defaults.celSize, j * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+        util.roundRect(i, j);
       } 
     }
   },
@@ -679,7 +694,7 @@ var animation = {
       animation.standardBoard();
       
       globals.context.fillStyle = '#f16529';
-      util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+      util.roundRect(x, y);
       
       x++;
       
@@ -702,7 +717,7 @@ var animation = {
       globals.context.fillStyle = '#f16529';
       
       for(var x = 0; x <= globals.squaresX; x++){
-        util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+        util.roundRect(x, y);
       }
       
       if(y === globals.squaresY){
@@ -725,7 +740,7 @@ var animation = {
       
       globals.context.fillStyle = '#f16529';
       
-      util.roundRect(x * defaults.celSize, 10 * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+      util.roundRect(x, y);
       
       if(dir === 0 && x === globals.squaresX){
         dir = 1;
@@ -808,7 +823,13 @@ var util = {
   // -- Draws rounded rectangles
   /* ------------------------------------------- */
   
-  roundRect: function(x, y, width, height){
+  roundRect: function(x, y){
+		
+		var width = defaults.celSize - 1,
+				height = defaults.celSize - 1,
+				x = x * defaults.celSize,
+				y = y * defaults.celSize;
+		
     globals.context.beginPath();
     globals.context.moveTo(x + defaults.celRadius, y);
     globals.context.lineTo(x + width - defaults.celRadius, y);
