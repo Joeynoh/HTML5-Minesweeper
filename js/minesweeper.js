@@ -83,8 +83,6 @@ var core = {
     globals.squaresX = Math.floor(defaults.width / defaults.celSize);
     globals.squaresY = Math.floor(defaults.height / defaults.celSize);
     
-    console.log(globals.squaresX + ', ' + globals.squaresY);
-    
     globals.mineMap = new Array(globals.squaresX);
     globals.flagMap = new Array(globals.squaresX);
     globals.revealedMap = new Array(globals.squaresX);
