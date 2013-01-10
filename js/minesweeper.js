@@ -64,8 +64,6 @@ var core = {
 
     var ratio = this.hiDPIRatio();
     if (ratio !== 1) {
-      console.log("HiDPI ratio:", ratio);
-
       var originalWidth = globals.canvas[0].width;
       var originalHeight = globals.canvas[0].height;
 
@@ -131,13 +129,20 @@ var core = {
     
     // Attach some listeners, at this point only mousedown
     globals.canvas.on({
-      mousedown: function(e){
+      mouseup: function(e){
         action.click(e);
       },
       mousemove: function(e){
         action.hover(e);  
       }
     });
+	
+	// Some quick preloading of the mine and flag images
+	var images = new Array();
+	images[0] = new Image();
+	images[0].src = defaults.mineImg;
+	images[1] = new Image();
+	images[1].src = defaults.flagImg;
     
     // Initialize the board
     core.setup();
@@ -251,15 +256,19 @@ var action = {
   // -- @return void
   /* ------------------------------------------- */
   
-  click: function(e){
+  click: function(e){  
+  
+    if(globals.gameover){
+			return false;
+		}
     
     // Calculate x & y relevant to the cel size, also (l) check if current x,y combo has already been revealed
     var x = Math.floor((e.pageX - globals.canvas[0].offsetLeft - 1) / defaults.celSize),
-      y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
-      l = (globals.revealedMap[x][y]) ? 1 : -1;
+      	y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
+      	l = (globals.revealedMap[x][y]) ? 1 : -1;
     
     // If left-click, not a flag and the game is still going on
-    if(e.which === 1 && globals.flagMap[x][y] !== 1 && !globals.gameover && defaults.difficulty !== 0){
+    if(e.which === 1 && globals.flagMap[x][y] !== 1 && defaults.difficulty !== 0){
       
       // Is this the first click of the game?
       if(globals.firstClick === true){
@@ -284,8 +293,36 @@ var action = {
       // Activate index function. See below for more details
       action.index(x, y);
     
-    // If right-click, game is not over, square has not been revealed and this is not the first click 
-    }else if(e.which === 3 && !globals.gameover && l < 0 && globals.firstClick !== true){
+		// If middle-click and a revealed square
+  	}else if(e.which === 3 && util.is('revealed', x, y)){
+	  
+			// Calculate number of surrounding mines
+			var num = 0,
+					surrounded = new Array(),
+					xArr = [x, x + 1, x - 1],
+					yArr = [y, y + 1, y - 1];
+			
+			for(var a = 0; a < 3; a++){
+				for(var b = 0; b < 3; b++){
+			
+        	if(util.is('flag', xArr[a], yArr[b])){
+				  	num++;	  
+          }else{
+		  			surrounded.push([xArr[a], yArr[b]]);  
+		  		}
+        }
+      }
+	  
+			// Compare with number of actual mines
+			if(num === globals.mineMap[x][y]){
+				$.each(surrounded, function(){
+					// Remove non-flagged squares, using action.index	
+					action.index(this[0], this[1]);	  
+				});
+			}
+		
+			// If right-click, game is not over, square has not been revealed and this is not the first click	
+		}else if(e.which === 3 && l < 0 && globals.firstClick !== true){
       
       // Flag the square
       var flag = new Image();
@@ -304,27 +341,29 @@ var action = {
   
   hover: function(e){
     
-    // Calculate x & y relevant to the cel size, also (l) check if current x,y combo has already been revealed
-    var x = Math.floor((e.pageX - globals.canvas[0].offsetLeft - 1) / defaults.celSize),
-      y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
-      l = (globals.revealedMap[x][y]) ? 1 : -1,
-      f = (globals.flagMap[x][y]) ? 1 : -1;
-    
-    var pX = globals.previous[0],
-      pY = globals.previous[1];
-    
-    if(typeof pX !== 'undefined' && globals.revealedMap[pX][pY] !== 1 && globals.flagMap[pX][pY] !== 1){
-      globals.context.fillStyle = defaults.celColor;
-      util.roundRect(globals.previous[0] * defaults.celSize, globals.previous[1] * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1); 
-    }
-    
-    if(l < 0 && f < 0 && !globals.firstClick){
-      
-      globals.context.fillStyle = '#aaa';
-      util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
-      globals.previous[0] = x;
-      globals.previous[1] = y;
-    }
+		if(!globals.gameover){
+			// Calculate x & y relevant to the cel size, also (l) check if current x,y combo has already been revealed
+			var x = Math.floor((e.pageX - globals.canvas[0].offsetLeft - 1) / defaults.celSize),
+				y = Math.floor((e.pageY - globals.canvas[0].offsetTop - 1) / defaults.celSize),
+				l = (globals.revealedMap[x][y]) ? 1 : -1,
+				f = (globals.flagMap[x][y]) ? 1 : -1;
+			
+			var pX = globals.previous[0],
+				pY = globals.previous[1];
+			
+			if(typeof pX !== 'undefined' && globals.revealedMap[pX][pY] !== 1 && globals.flagMap[pX][pY] !== 1){
+				globals.context.fillStyle = defaults.celColor;
+				util.roundRect(globals.previous[0] * defaults.celSize, globals.previous[1] * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1); 
+			}
+			
+			if(l < 0 && f < 0 && !globals.firstClick){
+				
+				globals.context.fillStyle = '#aaa';
+				util.roundRect(x * defaults.celSize, y * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
+				globals.previous[0] = x;
+				globals.previous[1] = y;
+			}
+		}
   },
   
   /* ------------------------------------------- */
@@ -459,7 +498,6 @@ var action = {
       
       // Stops the timer and counts down to a reset of the game
       window.clearInterval(globals.clock);
-      globals.restart = setTimeout(function(){ core.reset() },3000);
     }
   },
   
@@ -503,49 +541,38 @@ var action = {
     // Check every square
     for(var i = 0; i < globals.squaresX; i++){
       for(var j = 0; j < globals.squaresY; j++){
-        
-        //If the square is not a mine; calculate its surround mine number
-        if(globals.mineMap[i][j] !== -1){
-          
-            var xArr = [i, i + 1, i - 1],
-              yArr = [j, j + 1, j - 1];
-            
-            /*
-            
-            The loop iterates over the surrounding squares as shown below:
-            
-            -------------------------
-            | i - 1 |   i   | i + 1 |
-            | j - 1 | j - 1 | j - 1 |
-            -------------------------
-            | i - 1 |   i   | i + 1 |
-            |   j   |   j   |   j   |
-            -------------------------
-            | i - 1 |   i   | i + 1 |
-            | j + 1 | j - 1 | j + 1 |
-            ------------------------- 
-            
-            */        
-
-            for(var a = 0; a < 3; a++){
-              for(var b = 0; b < 3; b++){
-                if(typeof globals.mineMap[xArr[a]] !== 'undefined' && typeof globals.mineMap[xArr[a]][yArr[b]] !== 'undefined' && globals.mineMap[xArr[a]][yArr[b]] === -1){
-                  
-                  mineCount++;
-                  
-                }
-              }
-            }
-          
-          // Save number and reset the counter
-          globals.mineMap[i][j] = mineCount;
-          mineCount = 0;
-          
-        } else {
-          
-          // Count the mines
-          globals.totalMines++;   
-        }
+		  
+			if(globals.mineMap[i][j] === -1){
+				
+				var xArr = [i, i + 1, i - 1],
+						yArr = [j, j + 1, j - 1];	
+				
+					/* 
+					
+					The loop iterates over the surrounding squares as shown below:
+								
+								-------------------------
+								| i - 1 |   i   | i + 1 |
+								| j - 1 | j - 1 | j - 1 |
+								-------------------------
+								| i - 1 |   i   | i + 1 |
+								|   j   |   j   |   j   |
+								-------------------------
+								| i - 1 |   i   | i + 1 |
+								| j + 1 | j - 1 | j + 1 |
+								-------------------------	
+					*/
+			
+					for(var a = 0; a < 3; a++){
+						for(var b = 0; b < 3; b++){
+							if(util.is('mine', xArr[a], yArr[b])){
+								globals.mineMap[xArr[a]][yArr[b]]++;
+							}
+						}
+					}
+					
+					globals.totalMines++;	
+				}  
       } 
     }
   },
@@ -571,11 +598,10 @@ var action = {
     // Set game over status
     globals.gameover = true;
     containers.status.html('Game over :(');
-    containers.msg.html('A new game will start in 3 seconds.');
+    containers.msg.html('Click the reset button to start a new game');
     
     // Stops the timer and counts down to a reset of the game
     window.clearInterval(globals.clock);
-    globals.restart = setTimeout(function(){ core.reset() },3000);
   }
 };
 
@@ -701,7 +727,6 @@ var animation = {
       
       globals.context.fillStyle = '#f16529';
       
-      
       util.roundRect(x * defaults.celSize, 10 * defaults.celSize, defaults.celSize - 1, defaults.celSize - 1);
       
       if(dir === 0 && x === globals.squaresX){
@@ -819,7 +844,21 @@ var util = {
         $('.startscreen').fadeToggle();
       });   
     }
-  }
+  },
+	
+	is: function(what, x, y){
+		var p = {
+			'revealed': globals.revealedMap,
+			'mine': globals.mineMap,
+			'flag': globals.flagMap
+		};
+		
+		if(typeof p[what][x] !== 'undefined' && typeof p[what][x][y] !== 'undefined' && p[what][x][y] > -1){
+			return true;
+		}else{
+			return false;
+		}
+	}
 };
 
 /* =========================================== */
