@@ -5,34 +5,37 @@ Minesweeper game using jQuery and HTML5 canvas.
 
 Online demo can be found here: http://joeyvo.me/HTML5-minesweeper/
 
-### v2.0
-- Brand new and more completely UI
+### Current version: 3.0.1
+
+##### New
+- Speed solving, right click on a revealed square
+- Faster mine index algorithm
+- Listener put on mouseup rather than mousedown
+- Retina support (contributed by meltingice)
+- Image preloading
+- Replaced that Github ribbon
+- Game no longer automatically resets after a win or loss
+
+##### Previous versions
+- Brand new and more complete UI
 - Better interaction
 - Custom animations on the playingfield
 - New images
 - Scoreboard and use of local storage for scores
 - Refactoring and optimization
-
-### v1.5
 - Some bug fixes
 - New UI
 - New difficulty features
-
-### v1.0
 - Click on empty square, reveal larger space up until other numbered squares
 - Timer
 - Better grid, using rounded squares
 - Fixed numerous issues like unflagging and clicking after the game has been won or lost
 - Added mine and flag counters
 - Created a reset function so the page no longer needs to refresh to start over
-- Game automatically resets 3 seconds after the end of the game
 
 TODO
 ----
 - Score algorithm
-- Speed solving
-- Remove obscure ribbon
-- Adjust mine index algorithm
 
 
 Inspired by: 
