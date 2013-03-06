@@ -7,7 +7,7 @@ Online demo can be found here at [joeyvo.me/HTML5-minesweeper](http://joeyvo.me/
 
 Now featured on [Chrome Experiments](http://www.chromeexperiments.com/detail/html5-minesweeper)
 
-Follow news and developments on twitter: @Joeynoh
+Follow news and developments on twitter: [@Joeynoh](https://twitter.com/Joeynoh)
 
 ### Current version: 3.0.1
 
